@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>National Parks Loop · Nov 2026</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, html { width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", PingFang SC, Microsoft YaHei, Noto Sans SC, Helvetica Neue, Arial, sans-serif; overflow: hidden; background-color: #f1f5f9; }
+    #app { position: relative; display: flex; width: 100%; height: 100%; }
+    #sidebar { width: 380px; height: 100%; background-color: #f0f2f5; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05); z-index: 1000; display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar-header { padding: 24px; border-bottom: 1px solid #e2e8f0; }
+    .sidebar-header h1 { font-size: 26px; font-weight: 700; color: #0f172a; margin-bottom: 4px; cursor: pointer; transition: opacity 0.2s ease; }
+    .sidebar-header h1:hover { opacity: 0.7; }
+    .sidebar-header p { font-size: 13px; color: #64748b; }
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+    .day-card { background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .day-card:hover { border-color: #cbd5e1; background-color: #f8fafc; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
+    .day-card.active { border-color: #0f172a; background-color: #ffffff; border-width: 2px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+    .day-card.collapsed { font-size: 13px; padding: 8px 14px; background-color: #f8fafc; border: 1px solid transparent; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; box-shadow: none; }
+    .day-card.collapsed:hover { background-color: #e2e8f0; border-color: #cbd5e1; }
+    .day-card.collapsed .day-header { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: #64748b; text-transform: uppercase; margin-bottom: 0; }
+    .day-card.collapsed .day-title { font-size: 13px; font-weight: 600; color: #0f172a; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .day-card.collapsed .collapsed-pois { font-size: 11px; color: #64748b; line-height: 1.3; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #e2e8f0; }
+    .day-card.collapsed .collapsed-poi-name { font-size: 11px; color: #64748b; line-height: 1.3; }
+    .day-card.collapsed .driving-info,
+    .day-card.collapsed .sunlight-bar,
+    .day-card.collapsed .weather-info { display: none !important; }
+    .day-header { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: #64748b; margin-bottom: 4px; text-transform: uppercase; }
+    .day-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+    .day-pois { list-style-type: none; margin-bottom: 8px; }
+    .sidebar-poi-item { cursor: pointer; transition: all 0.2s ease; padding: 6px 8px; border-radius: 6px; display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 4px; line-height: 1; }
+    .sidebar-poi-item:hover { background-color: #e2e8f0; }
+    .poi-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; vertical-align: middle; line-height: 1; margin: 0; }
+    .poi-name-text { flex: 1; font-size: 13px; font-weight: 500; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; line-height: 1; vertical-align: middle; display: inline-flex; align-items: center; }
+    .poi-arrow { font-size: 10px; color: #94a3b8; opacity: 0; transition: opacity 0.2s ease, transform 0.2s ease; margin-left: 4px; line-height: 1; vertical-align: middle; display: inline-flex; align-items: center; }
+    .sidebar-poi-item:hover .poi-arrow { opacity: 1; transform: translateX(2px); }
+    .driving-info { font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0; }
+    .stay-info { font-size: 12px; color: #0f172a; font-weight: 500; display: flex; align-items: center; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e2e8f0; }
+    .sunlight-bar { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e2e8f0; }
+    .weather-info { font-size: 11px; color: #475569; margin-top: 4px; }
+    #map { flex: 1; height: 100%; background-color: #f1f5f9; }
+    .leaflet-tile { filter: grayscale(1) brightness(0.96) contrast(1.05); }
+    .satellite-active .leaflet-tile { filter: none; }
+    .map-annotation-label { font-size: 14px; font-weight: 600; color: #0f172a; white-space: nowrap; background: none !important; border: none !important; box-shadow: none !important; }
+    .map-toggle-control { background: #ffffff; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); padding: 4px; display: flex; align-items: center; gap: 4px; pointer-events: auto; }
+    .map-toggle-btn { border: none; padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; background: transparent; color: #64748b; transition: all 0.15s ease; }
+    .map-toggle-btn.active { background-color: #0f172a; color: #ffffff; }
+    .map-toggle-divider { width: 1px; height: 16px; background-color: #e2e8f0; margin: 0 4px; }
+    .city-cluster-marker { display: block; width: 0 !important; height: 0 !important; }
+    .city-cluster-inner { background-color: #ffffff; color: #0f172a; border: 2px solid #0f172a; border-radius: 12px; padding: 6px 14px; display: inline-block; font-size: 16px; font-weight: 700; text-align: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); transition: background-color 0.2s ease, color 0.2s ease; white-space: nowrap; position: absolute; transform: translate(-50%, -50%); }
+    .city-cluster-inner:hover { background-color: #0f172a; color: #ffffff; }
+    .map-legend { background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); padding: 10px 12px; font-size: 11px; color: #334155; display: flex; flex-direction: column; gap: 6px; pointer-events: auto; }
+    .legend-item { display: flex; align-items: center; gap: 8px; }
+    .legend-item i { width: 14px; text-align: center; }
+    .detail-modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.15); z-index: 2000; display: none; opacity: 0; transition: opacity 0.25s ease-out; pointer-events: none; }
+    .detail-modal-overlay.open { opacity: 1; }
+    .detail-panel { position: fixed; right: 20px; top: 20px; width: 420px; max-width: calc(100% - 32px); max-height: calc(100vh - 40px); background-color: #ffffff; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25); border-radius: 12px; display: flex; flex-direction: column; overflow-y: auto; z-index: 2001; transform: scale(0.95); transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: auto; }
+    .detail-modal-overlay.open .detail-panel { transform: scale(1); }
+    .detail-close-btn { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 50%; background-color: rgba(255, 255, 255, 0.9); border: 1px solid #e2e8f0; font-size: 20px; color: #475569; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; box-shadow: 0 2px 6px rgba(0,0,0,0.1); transition: all 0.2s ease; }
+    .detail-close-btn:hover { background-color: #ffffff; color: #0f172a; transform: scale(1.05); }
+    .detail-carousel { position: relative; width: 100%; height: 250px; background-color: #e2e8f0; overflow: hidden; flex-shrink: 0; }
+    .detail-carousel img { width: 100%; height: 100%; object-fit: cover; display: none; cursor: pointer; transition: transform 0.3s ease; }
+    .detail-carousel img:hover { transform: scale(1.02); }
+    .detail-carousel img.active { display: block; }
+    .detail-carousel .carousel-nav { position: absolute; top: 50%; transform: translateY(-50%); background-color: rgba(255, 255, 255, 0.8); border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #0f172a; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: all 0.15s ease; }
+    .detail-carousel .carousel-nav:hover { background-color: #ffffff; transform: translateY(-50%) scale(1.05); }
+    .detail-carousel .carousel-prev { left: 12px; }
+    .detail-carousel .carousel-next { right: 12px; }
+    .detail-carousel .carousel-dots { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; z-index: 10; }
+    .detail-carousel .carousel-dot { width: 8px; height: 8px; border-radius: 50%; background-color: rgba(255, 255, 255, 0.5); border: none; cursor: pointer; transition: all 0.2s ease; }
+    .detail-carousel .carousel-dot.active { background-color: #ffffff; width: 16px; border-radius: 4px; }
+    .detail-body { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+    .detail-day-indicator { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .detail-title-container { display: flex; align-items: center; gap: 18px; }
+    .detail-title-container h2 { font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; }
+    .detail-title-container i { font-size: 20px; }
+    .detail-section { padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02); }
+    .detail-section h4 { font-size: 15px; font-weight: 700; margin-bottom: 8px; color: #0f172a; display: flex; align-items: center; gap: 6px; }
+    .description-section { border-left: 4px solid #3B82F6; background-color: #ffffff; border-top: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; }
+    .description-section p { font-size: 16px; line-height: 1.7; color: #334155; }
+    .tips-section { border-left: 4px solid #F59E0B; background-color: #FFFBEB; border-top: 1px solid #FEF3C7; border-right: 1px solid #FEF3C7; border-bottom: 1px solid #FEF3C7; }
+    .tips-section p { font-size: 15px; line-height: 1.7; color: #78350F; }
+    .detail-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+    .detail-gmaps-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 10px 18px; background-color: #0f172a; color: #ffffff !important; text-decoration: none; font-size: 14px; font-weight: 600; border-radius: 8px; text-align: center; transition: background-color 0.2s ease, transform 0.1s ease; box-shadow: 0 2px 4px rgba(15, 23, 42, 0.1); }
+    .detail-gmaps-btn:hover { background-color: #1e293b; transform: translateY(-1px); }
+    .detail-note-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 8px 16px; background-color: transparent; color: #475569; border: 1px solid #cbd5e1; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
+    .detail-note-btn:hover { background-color: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+    .note-input-container { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 6px; }
+    .note-input-container textarea { width: 100%; height: 80px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #334155; font-family: inherit; resize: none; }
+    .note-input-container textarea:focus { outline: none; border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+    .note-save-btn { align-self: flex-end; padding: 6px 14px; background-color: #0f172a; color: #ffffff; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: background-color 0.15s ease; }
+    .note-save-btn:hover { background-color: #1e293b; }
+    .note-display { margin-top: 6px; padding: 10px 12px; background-color: #f8fafc; border-left: 3px solid #64748b; border-radius: 0 6px 6px 0; font-size: 13px; color: #475569; line-height: 1.5; font-style: italic; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .note-text-wrapper { flex: 1; }
+    .note-delete-btn { background: none; border: none; padding: 0; color: #94a3b8; cursor: pointer; font-size: 14px; transition: color 0.2s ease; display: flex; align-items: center; justify-content: center; }
+    .note-delete-btn:hover { color: #ef4444; }
+    .fullscreen-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.85); z-index: 2500; display: flex; align-items: center; justify-content: center; }
+    .fullscreen-image-container { width: 80vw; height: 80vh; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; cursor: grab; }
+    .fullscreen-image-container:active { cursor: grabbing; }
+    .fullscreen-image-container img { max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.1s ease; transform-origin: center center; user-select: none; }
+    .fullscreen-close-btn { position: absolute; top: 24px; right: 24px; font-size: 40px; color: #ffffff; background: none; border: none; cursor: pointer; z-index: 2600; opacity: 0.8; transition: opacity 0.2s; }
+    .fullscreen-close-btn:hover { opacity: 1; }
+    .leaflet-tooltip-own { background-color: #0f172a !important; color: #ffffff !important; border: none !important; opacity: 0.9 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif !important; font-size: 13px !important; padding: 6px 10px !important; border-radius: 6px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important; }
+    .drag-handle { display: none; }
+    @media (max-width: 768px) {
+      #app { flex-direction: column-reverse; height: 100vh; overflow: hidden; }
+      #sidebar { width: 100%; height: 32vh; max-height: 100vh; box-shadow: 0 -4px 16px rgba(0,0,0,0.1); background-color: #f0f2f5; display: flex; flex-direction: column; transition: height 0.3s ease; z-index: 2000; border-top-left-radius: 12px; border-top-right-radius: 12px; overflow: hidden; }
+      #sidebar.dragging { transition: none !important; }
+      .sidebar-header { padding: 12px 16px; flex-shrink: 0; }
+      .sidebar-header h1 { font-size: 18px; }
+      .sidebar-header p { font-size: 11px; margin: 0; }
+      .drag-handle { display: flex; justify-content: center; align-items: center; width: 100%; height: 40px; min-height: 40px; background-color: #f0f2f5; cursor: grab; touch-action: none; user-select: none; flex-shrink: 0; padding: 8px 0; }
+      .drag-handle-bar { width: 36px; height: 5px; background-color: #94a3b8; border-radius: 3px; }
+      .drag-handle::after { content: ''; position: absolute; bottom: -20px; left: 0; right: 0; height: 30px; pointer-events: auto; }
+      #sidebar.mobile-collapsed .sidebar-content { flex-direction: column !important; overflow-y: hidden !important; overflow-x: hidden !important; padding: 12px 16px !important; gap: 0 !important; }
+      #sidebar.mobile-collapsed .day-card { min-width: 100% !important; max-width: 100% !important; width: 100% !important; height: auto !important; padding: 8px 14px !important; background-color: #f8fafc !important; border: 1px solid transparent !important; border-radius: 8px !important; box-shadow: none !important; }
+      #sidebar.mobile-collapsed .day-card.active { display: block !important; }
+      #sidebar.mobile-expanded .sidebar-content { flex-direction: column !important; overflow-y: auto !important; overflow-x: hidden !important; padding: 16px 20px !important; gap: 16px !important; }
+      #sidebar.mobile-expanded .day-card { min-width: 100% !important; max-width: 100% !important; width: 100% !important; height: auto !important; }
+      #map { flex: 1; width: 100%; height: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar" class="mobile-collapsed">
+      <div id="sidebar-drag-handle" class="drag-handle">
+        <div class="drag-handle-bar"></div>
+      </div>
+      <div class="sidebar-header">
+        <h1 id="sidebar-title">National Parks Loop</h1>
+        <p>12-Day Road Trip · Nov 11–22, 2026</p>
+      </div>
+      <div class="sidebar-content" id="sidebar-content"></div>
+    </div>
+    <div id="map"></div>
+    <div id="detail-overlay" class="detail-modal-overlay">
+      <div id="detail-panel" class="detail-panel">
+        <button class="detail-close-btn" id="detail-close-btn">&times;</button>
+        <div id="detail-content"></div>
+      </div>
+    </div>
+  </div>
+  <div id="fullscreen-overlay" class="fullscreen-overlay" style="display: none;">
+    <button class="fullscreen-close-btn" id="fullscreen-close-btn">&times;</button>
+    <div class="fullscreen-image-container">
+      <img id="fullscreen-img" src="" alt="Fullscreen Image">
+    </div>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+// ----------------------------------------------------
+// DATA
+// ----------------------------------------------------
+var tripData = [
+  { day:1, dateStr:"DAY 1 · WED NOV 11", title:"Arrive Los Angeles", drivingInfo:"LAX pickup · settle in near Manhattan Beach", stay:"🏨 Stay: LA (Airport Area)",
+    pois:[
+      {name:"LAX Airport",coord:[33.9416,-118.4085],type:"airport",icon:"fa-plane-arrival",color:"#c62828",desc:"Arrive at Los Angeles International Airport. Pick up AWD SUV for the road trip ahead."},
+      {name:"Manhattan Beach",coord:[33.8847,-118.4108],type:"beach",icon:"fa-umbrella-beach",color:"#0891b2",desc:"Relaxing beach town south of LAX. Great spot for a pre-trip stroll and dinner. Plenty of hotel options near the pier."}
+    ],
+    routeCoords:[[33.9416,-118.4085],[33.8847,-118.4108]] },
+
+  { day:2, dateStr:"DAY 2 · THU NOV 12", title:"LA → Page, AZ", drivingInfo:"~8h drive via I-15 → Las Vegas → St. George → Kanab → Page", stay:"🏨 Stay: Page, AZ",
+    pois:[
+      {name:"Page, AZ",coord:[36.9147,-111.4558],type:"city",icon:"fa-city",color:"#6d4c41",desc:"Gateway town to Lake Powell, Horseshoe Bend, and Antelope Canyon. Arrive by 4pm to catch Horseshoe Bend before sunset."},
+      {name:"Horseshoe Bend",coord:[36.8791,-111.5104],type:"landscape",icon:"fa-mountain",color:"#2e7d32",desc:"Iconic Colorado River meander viewpoint. 1.5 miles round trip easy walk from parking lot. Entry fee ~$10/vehicle. Sunset is prime time — golden light on the canyon walls. Bring a headlamp for the walk back.",tips:"⏰ Aim to arrive by 4:00–4:30 PM · 💲 ~$10 parking fee · 🥾 Easy 0.75 mile walk to overlook · 📸 Best photos at sunset · 🔦 Bring headlamp for walk back"}
+    ],
+    routeCoords:[[33.8847,-118.4108],[35.1796,-114.5670],[36.0986,-115.1728],[37.0965,-113.5684],[37.0475,-112.5263],[36.9147,-111.4558],[36.8791,-111.5104]] },
+
+  { day:3, dateStr:"DAY 3 · FRI NOV 13", title:"Antelope Canyon → Moab", drivingInfo:"Lower Antelope Canyon AM · Page → Moab ~4.5h afternoon", stay:"🏨 Stay: Moab, UT (2 nights)",
+    pois:[
+      {name:"Lower Antelope Canyon",coord:[36.9025,-111.4113],type:"canyon",icon:"fa-person-hiking",color:"#f97316",desc:"Navajo guided tour through stunning slot canyon. Light beams, sculpted sandstone walls — a photographer's dream. Tour operators: Ken's Tours or Dixie Ellis. Must reserve ahead. 09:00 tour recommended — arrive by 08:15.",tips:"🎟️ Must book guided tour in advance · 💲 ~$60-90/person + $15 Navajo entry fee · ⏰ 09:00 tour, arrive 08:15 · 📸 No tripods on regular tour · 🧥 Canyon is cool year-round"},
+      {name:"Monument Valley (Optional)",coord:[36.9833,-110.1124],type:"landscape",icon:"fa-mountain",color:"#2e7d32",desc:"Optional detour from Page to Moab. Iconic red mesas and buttes on Navajo land. Adds ~1.5h to the drive. Only if weather is good and time permits — not a must-do on this tight schedule."},
+      {name:"Moab, UT",coord:[38.5733,-109.5498],type:"city",icon:"fa-city",color:"#6d4c41",desc:"Adventure capital of Utah. Base for Arches and Canyonlands. Great restaurants and breweries on Main Street. Stock up on supplies here for the next 2 days."}
+    ],
+    routeCoords:[[36.8791,-111.5104],[36.9025,-111.4113],[36.9147,-111.4558],[36.9833,-110.1124],[38.5733,-109.5498]] },
+
+  { day:4, dateStr:"DAY 4 · SAT NOV 14", title:"Canyonlands + Arches", drivingInfo:"Moab → Canyonlands ~45min → Arches afternoon → evening Delicate Arch hike", stay:"🏨 Same: Moab, UT",
+    pois:[
+      {name:"Mesa Arch",coord:[38.3894,-109.8629],type:"viewpoint",icon:"fa-camera",color:"#f97316",desc:"Most iconic sunrise spot in Canyonlands. Short 0.5 mile loop to a cliff-edge arch framing the La Sal Mountains. Arrive 30 min before sunrise for best light — photographers line up early.",tips:"🌅 Classic sunrise shot · 🥾 0.5 mi loop, easy · ⏰ Arrive 30 min before sunrise"},
+      {name:"Grand View Point",coord:[38.3873,-109.8583],type:"viewpoint",icon:"fa-mountain",color:"#2e7d32",desc:"The ultimate Canyonlands panorama. 1.8 mile trail along the rim with endless canyon views. On a clear day you can see over 100 miles."},
+      {name:"Green River Overlook",coord:[38.4298,-109.9216],type:"viewpoint",icon:"fa-mountain",color:"#2e7d32",desc:"Short walk to a stunning view of the Green River winding through the canyon below. One of the most photographed spots in the park."},
+      {name:"Park Avenue (Arches)",coord:[38.6192,-109.6026],type:"hiking",icon:"fa-person-hiking",color:"#ef4444",desc:"Named for the towering sandstone fins that resemble NYC skyscrapers. 1 mile out-and-back trail through a dramatic canyon bottom."},
+      {name:"Balanced Rock",coord:[38.7004,-109.5657],type:"landmark",icon:"fa-monument",color:"#a855f7",desc:"Massive 128-ft boulder balancing on a narrow pedestal. Easy 0.3 mile loop around the base. One of the most recognizable features in the park."},
+      {name:"Windows Section",coord:[38.6825,-109.5348],type:"hiking",icon:"fa-person-hiking",color:"#ef4444",desc:"North Window, South Window, and Turret Arch in one easy 1 mile loop. Great photo ops — you can walk right up to the massive openings."},
+      {name:"Double Arch",coord:[38.6914,-109.5417],type:"landmark",icon:"fa-monument",color:"#a855f7",desc:"Two massive arches sharing the same foundation — tallest opening in the park. Short 0.5 mile walk from the Windows parking area."},
+      {name:"Delicate Arch",coord:[38.7433,-109.4994],type:"hiking",icon:"fa-person-hiking",color:"#ef4444",desc:"THE iconic Utah arch. 3 miles round trip, 480ft elevation gain. Start around 14:45-15:00 to catch sunset light on the arch. Bring a headlamp for the hike down — it gets dark early in November.",tips:"🥾 3 mi RT, moderate-strenuous · ⏰ Start by 15:00 · 🔦 Headlamp mandatory · 🧥 Warm layers for sunset · 💧 1L water minimum"}
+    ],
+    routeCoords:[[38.5733,-109.5498],[38.3894,-109.8629],[38.3873,-109.8583],[38.4298,-109.9216],[38.6192,-109.6026],[38.7004,-109.5657],[38.6825,-109.5348],[38.6914,-109.5417],[38.7359,-109.5207],[38.7433,-109.4994],[38.5733,-109.5498]] },
+
+  { day:5, dateStr:"DAY 5 · SUN NOV 15", title:"Arches AM → Capitol Reef", drivingInfo:"Devils Garden AM · Moab → Capitol Reef ~2.5h · Capitol Reef afternoon", stay:"🏨 Stay: Torrey, UT",
+    pois:[
+      {name:"Landscape Arch",coord:[38.7906,-109.6072],type:"hiking",icon:"fa-person-hiking",color:"#ef4444",desc:"Thinnest natural arch in the world — a 306-ft ribbon of rock. 1.9 miles round trip on well-maintained trail. The arch is so thin it looks like it could snap any moment.",tips:"🥾 1.9 mi RT, easy · 📸 Wide-angle lens recommended"},
+      {name:"Sand Dune Arch",coord:[38.7643,-109.5866],type:"hiking",icon:"fa-person-hiking",color:"#ef4444",desc:"Hidden arch tucked between tall fins with deep red sand. Short 0.4 mile walk — feels like discovering a secret beach in the desert."},
+      {name:"Skyline Arch",coord:[38.7700,-109.5800],type:"hiking",icon:"fa-person-hiking",color:"#ef4444",desc:"Quick 0.4 mile round trip to a large arch perched high on the rock face. Great family-friendly stop."},
+      {name:"Fruita Historic District",coord:[38.2897,-111.2472],type:"historic",icon:"fa-landmark",color:"#6d4c41",desc:"Historic Mormon pioneer settlement in the heart of Capitol Reef. Orchards, a one-room schoolhouse, and the famous Gifford House — they sell fresh pies! Get there early before they sell out.",tips:"🥧 Gifford House pies are legendary — go early! · 🍎 Historic orchards · 🏫 Pioneer schoolhouse"},
+      {name:"Capitol Reef Petroglyphs",coord:[38.2890,-111.2390],type:"historic",icon:"fa-draw-polygon",color:"#6d4c41",desc:"Fremont Culture rock art panels along the boardwalk. Easy walk with interpretive signs. Some petroglyphs are over 1,000 years old."},
+      {name:"Hickman Bridge",coord:[38.2902,-111.2287],type:"hiking",icon:"fa-person-hiking",color:"#e65100",desc:"Natural bridge hike — 1.8 miles round trip with moderate elevation. Great views of the Fremont River and surrounding cliffs. Do this first thing if time is tight."},
+      {name:"Scenic Drive (Capitol Reef)",coord:[38.2813,-111.2456],type:"scenic",icon:"fa-road",color:"#0891b2",desc:"7.9 mile paved scenic drive through the heart of the Waterpocket Fold. Stunning cliff walls, historic structures, and spur trails. The Grand Wash spur (dirt) is worth it for dramatic narrows."},
+      {name:"Sunset Point / Goosenecks",coord:[38.2997,-111.2478],type:"viewpoint",icon:"fa-sun",color:"#e65100",desc:"Perfect sunset spot overlooking Sulphur Creek's twisting goosenecks. Short walk from the parking area. The canyon glows orange and red in the last light."}
+    ],
+    routeCoords:[[38.5733,-109.5498],[38.7906,-109.6072],[38.7643,-109.5866],[38.7700,-109.5800],[38.2897,-111.2472],[38.2890,-111.2390],[38.2902,-111.2287],[38.2813,-111.2456],[38.2997,-111.2478],[38.2986,-111.4196]] },
+
+  { day:6, dateStr:"DAY 6 · MON NOV 16", title:"Scenic Byway 12 → Bryce", drivingInfo:"Capitol Reef → UT-12 Scenic Byway → Bryce ~4-5h · Bryce viewpoints afternoon", stay:"🏨 Stay: Bryce Canyon City / Ruby's Inn",
+    pois:[
+      {name:"UT-12 Scenic Byway",coord:[37.7700,-111.6020],type:"scenic",icon:"fa-road",color:"#0891b2",desc:"One of America's most scenic highways. Route: Torrey → Boulder → Escalante → Bryce. Boulder Mountain (9,600ft) offers sweeping vistas, then Hogback section is a narrow ridge with drop-offs on both sides. Grand Staircase-Escalante stretches as far as you can see.",tips:"🚗 One of America's most scenic drives · 🏔️ Boulder Mountain summit ~9,600ft · ⚠️ Hogback section — narrow ridge road · 📸 Pull over at every overlook"},
+      {name:"Sunrise Point (Bryce)",coord:[37.6287,-112.1637],type:"viewpoint",icon:"fa-sun",color:"#e65100",desc:"Classic Bryce amphitheater view facing east. Best at sunrise (the name says it all). The rim trail connects Sunrise to Sunset Point — an easy, spectacular walk."},
+      {name:"Sunset Point (Bryce)",coord:[37.6224,-112.1665],type:"viewpoint",icon:"fa-sun",color:"#e65100",desc:"Main amphitheater overlook. Starting point for Navajo Loop. Thor's Hammer — the most famous hoodoo — is visible from here. Sunset light makes the hoodoos glow orange and pink.",tips:"📸 Thor's Hammer visible from here · 🥾 Navajo Loop trailhead · 🌅 Best at sunset"},
+      {name:"Inspiration Point",coord:[37.6143,-112.1705],type:"viewpoint",icon:"fa-mountain",color:"#2e7d32",desc:"Three-level viewpoint offering progressively higher perspectives of the amphitheater. The upper deck gives the best panoramic view of Bryce's hoodoo army."},
+      {name:"Bryce Point",coord:[37.6053,-112.1833],type:"viewpoint",icon:"fa-mountain",color:"#2e7d32",desc:"The most dramatic amphitheater view — and the southernmost accessible one. Best in late afternoon light. If the road is open this late in the season, this is a must-stop."}
+    ],
+    routeCoords:[[38.2986,-111.4196],[38.0500,-111.3500],[37.9200,-111.4310],[37.7700,-111.6020],[37.6287,-112.1637],[37.6224,-112.1665],[37.6143,-112.1705],[37.6053,-112.1833],[37.5930,-112.1871]] },
+
+  { day:7, dateStr:"DAY 7 · TUE NOV 17", title:"Bryce → Zion", drivingInfo:"Bryce sunrise → Navajo/Queen's Garden hike · ~2h drive to Zion East Entrance", stay:"🏨 Stay: Springdale, UT",
+    pois:[
+      {name:"Navajo Loop & Queen's Garden",coord:[37.6224,-112.1665],type:"hiking",icon:"fa-person-hiking",color:"#ef4444",desc:"Bryce's signature hike — 3 miles of hoodoos, switchbacks, and surreal rock formations. Descend via Navajo Loop (Wall Street section with towering walls), traverse Queen's Garden, climb back via Sunrise Point. November means possible ice — microspikes are mandatory. If it's too icy, don't push it.",tips:"🥾 3 mi loop, moderate · ❄️ Microspikes mandatory in Nov · 🔄 Descend Navajo, ascend via Queen's Garden · ⚠️ Turn back if icy"},
+      {name:"Checkerboard Mesa",coord:[37.2266,-112.8808],type:"landmark",icon:"fa-monument",color:"#6d4c41",desc:"Distinctive cross-hatched sandstone formation on the drive into Zion's East Entrance. The grid-like erosion pattern looks exactly like a checkerboard — a unique geological feature."},
+      {name:"Zion-Mount Carmel Tunnel",coord:[37.2150,-112.9400],type:"landmark",icon:"fa-road",color:"#0891b2",desc:"1.1 mile tunnel blasted through solid rock in 1930. Gallery windows offer quick glimpses of the canyon. RVs need an escort — AWD SUVs can drive straight through."},
+      {name:"Canyon Overlook Trail",coord:[37.2130,-112.9410],type:"viewpoint",icon:"fa-camera",color:"#f97316",desc:"Quick 1 mile round trip hike from the east side of the tunnel. Spectacular view of Zion Canyon from above — one of the best effort-to-reward ratios in the entire trip. Late afternoon light is perfect.",tips:"🥾 1 mi RT, moderate · 📸 Best afternoon light · 🚗 Parking is tight — go early or late"}
+    ],
+    routeCoords:[[37.6287,-112.1637],[37.6224,-112.1665],[37.6233,-112.1639],[37.2266,-112.8808],[37.2150,-112.9400],[37.2130,-112.9410],[37.1886,-112.9985]] },
+
+  { day:8, dateStr:"DAY 8 · WED NOV 18", title:"Zion → Vegas → LA", drivingInfo:"Zion shuttle & Narrows AM · → Vegas 2.5h · Sphere · → LA ~4.5h evening", stay:"🏨 Stay: Los Angeles",
+    pois:[
+      {name:"The Narrows (Riverside Walk)",coord:[37.2853,-112.9487],type:"hiking",icon:"fa-water",color:"#0891b2",desc:"Take the Zion Canyon shuttle to the last stop (Temple of Sinawava). The paved Riverside Walk is 1 mile each way along the Virgin River. Stunning canyon walls close in as you walk upstream. November means no in-water hiking without a dry suit — the paved trail gives you the Narrows experience safely.",tips:"🚌 Shuttle required (runs to ~5pm) · 🥾 2 mi RT paved · ❄️ No in-water hiking in Nov · 📸 Temple of Sinawava is the last shuttle stop"},
+      {name:"Scout Lookout (Optional)",coord:[37.2752,-112.9426],type:"hiking",icon:"fa-person-hiking",color:"#ef4444",desc:"The paved switchback trail to Scout Lookout (Walter's Wiggles) is a solid workout with amazing canyon views. This is the stopping point before Angels Landing — which requires a permit. Great alternative if you want a challenge.",tips:"🥾 4 mi RT, strenuous · 🚫 No permit needed for Scout Lookout · 💧 Bring water · ⏰ ~2-3h round trip"},
+      {name:"Las Vegas Sphere",coord:[36.1202,-115.1614],type:"landmark",icon:"fa-globe",color:"#a855f7",desc:"The world's largest spherical structure — 366ft tall with a wraparound LED screen. Stop for lunch and a photo. The Wizard of Oz at Sphere (~75 min immersive show) is optional — check November showtimes. Even just seeing it from outside is worth the detour.",tips:"🎪 Wizard of Oz show ~75 min · 📸 Exterior is free to view · 🍕 Food options nearby · 🅿️ Parking at Venetian/Palazzo"},
+      {name:"Downtown LA",coord:[34.0522,-118.2437],type:"city",icon:"fa-city",color:"#6d4c41",desc:"Arrive back in LA late evening (~22:00-23:00). Long driving day — rest up for tomorrow's wedding."}
+    ],
+    routeSegments:[
+      {label:"Zion → Vegas (~2.5h)",coords:[[37.1886,-112.9985],[37.2853,-112.9487],[36.1202,-115.1614]]},
+      {label:"Vegas → LA (~4.5h)",coords:[[36.1202,-115.1614],[35.1796,-114.5670],[34.0522,-118.2437]]}
+    ],
+    routeCoords:[[37.1886,-112.9985],[37.2853,-112.9487],[37.2752,-112.9426],[36.1202,-115.1614],[35.1796,-114.5670],[34.0522,-118.2437]] },
+
+  { day:9, dateStr:"DAY 9 · THU NOV 19", title:"LA Wedding Day 💍", drivingInfo:"Rest day — wedding celebration", stay:"🏨 Stay: Los Angeles",
+    pois:[
+      {name:"Los Angeles",coord:[34.0522,-118.2437],type:"city",icon:"fa-heart",color:"#ec4899",desc:"Wedding day! No sightseeing planned. Enjoy the celebration 💒"}
+    ],
+    routeCoords:[] },
+
+  { day:10, dateStr:"DAY 10 · FRI NOV 20", title:"Joshua Tree → San Diego", drivingInfo:"LA → Joshua Tree ~2.5h · West-to-East traverse · → San Diego ~2.5-3h", stay:"🏨 Stay: San Diego (Little Italy)",
+    pois:[
+      {name:"Joshua Tree West Entrance",coord:[34.0364,-116.2178],type:"entrance",icon:"fa-tree",color:"#84cc16",desc:"Enter through the West Entrance Station in the town of Joshua Tree. Visitor center has maps and information. The park is famous for its namesake Joshua trees and surreal rock formations."},
+      {name:"Hidden Valley",coord:[34.0142,-116.1693],type:"hiking",icon:"fa-person-hiking",color:"#84cc16",desc:"1 mile loop through a legendary rock-enclosed valley. Once used by cattle rustlers — today it's a climber's paradise. Easy trail with huge boulders all around."},
+      {name:"Keys View",coord:[33.9267,-116.2092],type:"viewpoint",icon:"fa-camera",color:"#f97316",desc:"Panoramic viewpoint at 5,185ft. On a clear day you can see the Salton Sea, San Andreas Fault, and Signal Mountain in Mexico. Short paved walk from the parking lot."},
+      {name:"Skull Rock",coord:[33.9970,-116.0603],type:"landmark",icon:"fa-skull",color:"#64748b",desc:"A granite boulder that looks exactly like a skull — right next to the main road. No hiking required, just pull over and walk up. One of the most photographed rocks in the park."},
+      {name:"Cholla Cactus Garden",coord:[33.9253,-115.9283],type:"garden",icon:"fa-leaf",color:"#84cc16",desc:"Dense stand of teddybear cholla cactus that glows golden in late afternoon light. Short quarter-mile nature trail. Don't touch — the spines are barbed and painful.",tips:"⚠️ Do not touch the cholla! · 🌅 Best in late afternoon light · 🥾 0.25 mi loop"},
+      {name:"Cottonwood Spring",coord:[33.7462,-115.8128],type:"exit",icon:"fa-door-open",color:"#64748b",desc:"South exit of Joshua Tree. Exit here to continue to San Diego — saves driving time vs. backtracking to the West Entrance. Cottonwood Visitor Center has water and restrooms."},
+      {name:"Little Italy, San Diego",coord:[32.7240,-117.1700],type:"dining",icon:"fa-utensils",color:"#e65100",desc:"Vibrant San Diego neighborhood. Great Italian food, craft beer, and a lively evening scene. India Street is the main drag. The Waterfront Park offers bay views.",tips:"🍝 India Street = main restaurant row · 🍺 Craft breweries everywhere · 🌊 Waterfront Park nearby"}
+    ],
+    routeCoords:[[34.0522,-118.2437],[34.0364,-116.2178],[34.0142,-116.1693],[33.9267,-116.2092],[33.9970,-116.0603],[33.9253,-115.9283],[33.7462,-115.8128],[32.7240,-117.1700]] },
+
+  { day:11, dateStr:"DAY 11 · SAT NOV 21", title:"San Diego Explore", drivingInfo:"Coastal San Diego: La Jolla → Torrey Pines → Balboa → Coronado", stay:"🏨 Stay: San Diego",
+    pois:[
+      {name:"La Jolla Cove",coord:[32.8507,-117.2722],type:"beach",icon:"fa-umbrella-beach",color:"#0891b2",desc:"Picturesque cove with sea lions and seals basking on the rocks. Great tide pooling at low tide. The smell might be strong but the views are worth it. Walk along the coast path to see more wildlife.",tips:"🦭 Sea lions everywhere · 🌊 Good tide pooling · 📸 Coast walk trail · 🅿️ Parking can be tight"},
+      {name:"Torrey Pines State Reserve",coord:[32.9136,-117.2523],type:"hiking",icon:"fa-person-hiking",color:"#84cc16",desc:"Coastal hiking at its finest. Guy Fleming Trail (0.7 miles) is easy with ocean views and wildflowers. Razor Point (1.4 miles) offers dramatic cliff views. The rare Torrey pine only grows here and on Santa Rosa Island."},
+      {name:"Balboa Park",coord:[32.7341,-117.1478],type:"park",icon:"fa-tree-city",color:"#84cc16",desc:"San Diego's cultural heart — Spanish Colonial Revival architecture, gardens, and museums. The Botanical Building and Lily Pond are free. Walk through the Alcazar Garden and along El Prado.",tips:"🏛️ Free gardens and architecture · 🌸 Botanical Building (free) · 🚶 Walk El Prado promenade"},
+      {name:"Hotel del Coronado",coord:[32.6807,-117.1782],type:"landmark",icon:"fa-hotel",color:"#1565c0",desc:"Iconic Victorian beach resort built in 1888. The red-roofed hotel is a National Historic Landmark. Walk the beach, explore the lobby, or grab a drink at the Sun Deck with ocean views.",tips:"🏖️ Beach walk · 🍹 Sun Deck bar · 📸 Best photos from the beach · 🚗 Drive over Coronado Bridge"},
+      {name:"Coronado Beach",coord:[32.6801,-117.1840],type:"beach",icon:"fa-umbrella-beach",color:"#0891b2",desc:"Wide, flat beach consistently rated among America's best. The sand has a unique golden sparkle from mica minerals. Perfect sunset spot before heading back to Little Italy for dinner."}
+    ],
+    routeCoords:[[32.7240,-117.1700],[32.8507,-117.2722],[32.9136,-117.2523],[32.7341,-117.1478],[32.6807,-117.1782],[32.6801,-117.1840],[32.7240,-117.1700]] },
+
+  { day:12, dateStr:"DAY 12 · SUN NOV 22", title:"San Diego → LAX", drivingInfo:"SD brunch/explore AM · 14:00 depart → LAX ~18:00 · 23:00 flight", stay:"🏨 Depart: 23:00 Flight from LAX",
+    pois:[
+      {name:"Cabrillo National Monument",coord:[32.6731,-117.2433],type:"landmark",icon:"fa-monument",color:"#6d4c41",desc:"Panoramic views of San Diego Bay, the Pacific, and downtown from Point Loma. Visit the Old Point Loma Lighthouse. Great for whale watching in season. Entry fee ~$20/vehicle.",tips:"🌊 Best bay views in SD · 🐋 Whale watching (seasonal) · 💲 ~$20/vehicle"},
+      {name:"USS Midway Museum",coord:[32.7137,-117.1751],type:"museum",icon:"fa-ship",color:"#7b1fa2",desc:"Walk the decks of America's longest-serving aircraft carrier. Over 60 exhibits and 29 restored aircraft. Allow 2-3 hours. An incredible piece of naval history docked downtown."},
+      {name:"LAX Airport",coord:[33.9416,-118.4085],type:"airport",icon:"fa-plane-departure",color:"#c62828",desc:"Return rental car by 18:00, shuttle to terminal. International flight check-in by 19:30. 23:00 departure — end of an epic national parks journey! 🏔️",tips:"🚗 Return car by 18:00 · ✈️ Check-in by 19:30 · 🛫 Flight 23:00"}
+    ],
+    routeCoords:[[32.7240,-117.1700],[32.7137,-117.1751],[32.6731,-117.2433],[33.9416,-118.4085]] }
+];
+
+// Pre-computed OSRM embedded routes for critical segments (fallback if API fails)
+var embeddedRoutes = {
+  2: {label:"~8 hours",coords:[[33.8847,-118.4108],[33.9150,-118.3870],[33.9630,-118.3450],[34.0500,-118.2500],[34.1200,-118.1500],[34.3100,-117.4800],[34.5200,-117.3200],[34.8800,-117.0200],[35.1800,-114.5700],[35.5000,-114.9000],[36.0100,-115.1700],[36.2300,-115.2500],[36.5000,-115.0000],[36.7200,-114.0700],[36.9100,-113.8800],[37.0000,-113.6800],[37.0500,-113.5700],[37.0500,-112.8800],[36.9900,-112.5300],[36.9150,-111.4600],[36.8790,-111.5100]]},
+  3: {label:"~4.5 hours",coords:[[36.8790,-111.5100],[36.9100,-111.4300],[37.0000,-111.0500],[37.1000,-110.8500],[37.2000,-110.7000],[37.5000,-110.3000],[37.8000,-110.1000],[38.1000,-109.9500],[38.3000,-109.8000],[38.5000,-109.6000]]},
+  8: {label:"~7 hours total",coords:[[37.1890,-112.9980],[37.1000,-113.5800],[36.8000,-113.9700],[36.6000,-114.0000],[36.3000,-115.0000],[36.1200,-115.1700],[35.5000,-114.9000],[34.8800,-117.0200],[34.5200,-117.3200],[34.3100,-117.4800],[34.1200,-118.1500],[34.0500,-118.2500]]},
+  10: {label:"~5 hours",coords:[[34.0520,-118.2440],[34.0300,-117.2900],[34.0100,-116.5000],[33.9500,-116.4000],[33.8400,-116.3000],[33.7500,-116.1000],[33.6700,-115.9500],[33.6000,-115.8000],[33.4500,-115.7000],[33.2000,-116.0000],[32.9000,-116.6000],[32.8000,-116.9000],[32.7240,-117.1700]]}
+};
+
+// ----------------------------------------------------
+// CITY GROUPS (for cluster labels)
+// ----------------------------------------------------
+var cityGroups = [
+  {name:"Los Angeles",coords:[34.0522,-118.2437],radius:0.5},
+  {name:"Page, AZ",coords:[36.9147,-111.4558],radius:0.3},
+  {name:"Moab, UT",coords:[38.5733,-109.5498],radius:0.3},
+  {name:"Torrey, UT",coords:[38.2986,-111.4196],radius:0.2},
+  {name:"Bryce Canyon",coords:[37.5930,-112.1871],radius:0.3},
+  {name:"Springdale",coords:[37.1886,-112.9985],radius:0.2},
+  {name:"Las Vegas",coords:[36.1146,-115.1728],radius:0.3},
+  {name:"San Diego",coords:[32.7157,-117.1611],radius:0.4}
+];
+
+// Day route colors
+var routeColors = ['#84cc16','#eab308','#f97316','#ef4444','#ec4899','#a855f7','#6366f1','#3b82f6','#64748b','#14b8a6','#0ea5e9','#f43f5e'];
+
+// ----------------------------------------------------
+// MAP INIT
+// ----------------------------------------------------
+var map = L.map('map').setView([35.5, -113.5], 7);
+
+// Grayscale base layer
+var grayscaleLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(map);
+
+// Satellite layer (hidden by default)
+var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: '&copy; <a href="https://www.esri.com/">Esri</a>',
+  maxZoom: 19
+});
+
+var satelliteActive = false;
+
+// Map controls
+var toggleControl = L.control({position:'topright'});
+toggleControl.onAdd = function() {
+  var div = L.DomUtil.create('div', 'map-toggle-control');
+  div.innerHTML = '<button class="map-toggle-btn active" id="btn-map">🗺️ Map</button><div class="map-toggle-divider"></div><button class="map-toggle-btn" id="btn-sat">🛰️ Satellite</button>';
+  L.DomEvent.disableClickPropagation(div);
+  L.DomEvent.disableScrollPropagation(div);
+  return div;
+};
+toggleControl.addTo(map);
+
+// Delegate click after DOM ready
+setTimeout(function(){
+  document.getElementById('btn-map').addEventListener('click',function(){
+    if(satelliteActive){
+      map.removeLayer(satelliteLayer);
+      document.getElementById('map').classList.remove('satellite-active');
+      this.classList.add('active');
+      document.getElementById('btn-sat').classList.remove('active');
+      satelliteActive=false;
+    }
+  });
+  document.getElementById('btn-sat').addEventListener('click',function(){
+    if(!satelliteActive){
+      map.addLayer(satelliteLayer);
+      document.getElementById('map').classList.add('satellite-active');
+      this.classList.add('active');
+      document.getElementById('btn-map').classList.remove('active');
+      satelliteActive=true;
+    }
+  });
+},200);
+
+// Legend
+var legendControl = L.control({position:'bottomleft'});
+legendControl.onAdd = function(){
+  var div = L.DomUtil.create('div','map-legend');
+  div.innerHTML = '<div class="legend-item"><i class="fa-solid fa-mountain" style="color:#2e7d32"></i> Viewpoint/Hike</div><div class="legend-item"><i class="fa-solid fa-person-hiking" style="color:#ef4444"></i> Trail</div><div class="legend-item"><i class="fa-solid fa-hotel" style="color:#1565c0"></i> Stay/Lodging</div><div class="legend-item"><i class="fa-solid fa-utensils" style="color:#e65100"></i> Food/City</div><div class="legend-item"><i class="fa-solid fa-tree" style="color:#84cc16"></i> National Park</div>';
+  return div;
+};
+legendControl.addTo(map);
+
+// ----------------------------------------------------
+// CITY CLUSTER LABELS
+// ----------------------------------------------------
+cityGroups.forEach(function(g){
+  var icon = L.divIcon({className:'city-cluster-marker',html:'<div class="city-cluster-inner">'+g.name+'</div>',iconSize:[0,0],iconAnchor:[0,0]});
+  L.marker(g.coords,{icon:icon}).addTo(map);
+});
+
+// ----------------------------------------------------
+// POI MARKERS
+// ----------------------------------------------------
+var allPoiMarkers = {}; // key: "dayIndex-poiIndex"
+
+function createPoiMarker(poi, dayIndex, poiIndex){
+  var icon = L.divIcon({
+    className: '',
+    html: '<div style="background:'+poi.color+';width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>',
+    iconSize: [14,14],
+    iconAnchor: [7,7]
+  });
+  var marker = L.marker(poi.coord, {icon:icon});
+  var key = dayIndex+'-'+poiIndex;
+  marker.bindTooltip(poi.name, {className:'leaflet-tooltip-own',direction:'top',offset:[0,-8]});
+  marker.on('click', function(){ openDetail(dayIndex, poiIndex); });
+  allPoiMarkers[key] = marker;
+  return marker;
+}
+
+tripData.forEach(function(day, di){
+  day.pois.forEach(function(poi, pi){
+    createPoiMarker(poi, di, pi).addTo(map);
+  });
+});
+
+// ----------------------------------------------------
+// ROUTE DRAWING
+// ----------------------------------------------------
+var routePolylines = {}; // key: dayIndex
+
+function drawStraightLine(dayIndex, coords, color){
+  if(routePolylines[dayIndex]){
+    map.removeLayer(routePolylines[dayIndex]);
+  }
+  var line = L.polyline(coords, {
+    color: color,
+    weight: 3,
+    opacity: 0.5,
+    dashArray: '8,8'
+  }).addTo(map);
+  routePolylines[dayIndex] = line;
+}
+
+function drawOsrmRoute(dayIndex, coords, color){
+  if(coords.length < 2) return;
+  var coordStr = coords.map(function(c){ return c[1]+','+c[0]; }).join(';');
+  var url = 'https://router.project-osrm.org/route/v1/driving/'+coordStr+'?overview=full&geometries=geojson';
+  
+  fetch(url).then(function(r){ return r.json(); }).then(function(data){
+    if(data.code==='Ok' && data.routes && data.routes[0]){
+      var geo = data.routes[0].geometry.coordinates;
+      var latlngs = geo.map(function(c){ return [c[1],c[0]]; });
+      if(routePolylines[dayIndex]){
+        map.removeLayer(routePolylines[dayIndex]);
+      }
+      var line = L.polyline(latlngs, {
+        color: color,
+        weight: 4,
+        opacity: 0.7
+      }).addTo(map);
+      routePolylines[dayIndex] = line;
+    } else {
+      drawStraightLine(dayIndex, coords, color);
+    }
+  }).catch(function(){
+    // Try embedded route as fallback
+    if(embeddedRoutes[dayIndex+1]){
+      var embedded = embeddedRoutes[dayIndex+1].coords;
+      if(routePolylines[dayIndex]){
+        map.removeLayer(routePolylines[dayIndex]);
+      }
+      var line = L.polyline(embedded, {color:color, weight:4, opacity:0.7}).addTo(map);
+      routePolylines[dayIndex] = line;
+    } else {
+      drawStraightLine(dayIndex, coords, color);
+    }
+  });
+}
+
+// Draw all routes
+tripData.forEach(function(day, di){
+  if(day.routeCoords && day.routeCoords.length >= 2){
+    drawOsrmRoute(di, day.routeCoords, routeColors[di]);
+  }
+});
+
+// ----------------------------------------------------
+// WEATHER (open-meteo)
+// ----------------------------------------------------
+var weatherCache = {};
+
+function fetchWeather(dayIndex, lat, lng, dateStr){
+  var key = dayIndex+'-'+dateStr;
+  if(weatherCache[key]) return renderWeather(dayIndex, weatherCache[key]);
+  
+  // open-meteo API: forecast for specific date
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lng+'&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode&timezone=America%2FLos_Angeles&forecast_days=16';
+  
+  fetch(url).then(function(r){ return r.json(); }).then(function(data){
+    if(data.daily){
+      // Find the matching date
+      var datePart = dateStr.split('-'); // e.g. "2026-11-11"
+      var targetDate = dateStr;
+      
+      var idx = -1;
+      for(var i=0; i<data.daily.time.length; i++){
+        if(data.daily.time[i] === targetDate){
+          idx = i; break;
+        }
+      }
+      if(idx >= 0){
+        var weather = {
+          high: data.daily.temperature_2m_max[idx],
+          low: data.daily.temperature_2m_min[idx],
+          precip: data.daily.precipitation_probability_max[idx],
+          code: data.daily.weathercode[idx]
+        };
+        weatherCache[key] = weather;
+        renderWeather(dayIndex, weather);
+      }
+    }
+  }).catch(function(){});
+}
+
+function getWeatherEmoji(code){
+  if(code <= 1) return '☀️';
+  if(code <= 3) return '⛅';
+  if(code <= 48) return '☁️';
+  if(code <= 57) return '🌧️';
+  if(code <= 67) return '🌨️';
+  if(code <= 77) return '❄️';
+  if(code <= 82) return '🌧️';
+  if(code <= 86) return '🌨️';
+  return '⛈️';
+}
+
+function renderWeather(dayIndex, weather){
+  var el = document.getElementById('weather-day-'+dayIndex);
+  if(!el) return;
+  var h = Math.round(weather.high);
+  var l = Math.round(weather.low);
+  var p = weather.precip;
+  var emoji = getWeatherEmoji(weather.code);
+  // Convert C to F
+  var hf = Math.round(h * 9/5 + 32);
+  var lf = Math.round(l * 9/5 + 32);
+  el.innerHTML = emoji+' '+hf+'°F / '+lf+'°F · 💧 '+p+'% precip';
+}
+
+// ----------------------------------------------------
+// SIDEBAR RENDERING
+// ----------------------------------------------------
+var activeDay = 0; // 0-indexed, default expanded
+
+function renderSidebar(){
+  var container = document.getElementById('sidebar-content');
+  var html = '';
+  tripData.forEach(function(day, di){
+    var isActive = (di === activeDay);
+    var collapsedClass = isActive ? '' : ' collapsed';
+    var poisHtml = '';
+    day.pois.forEach(function(poi, pi){
+      poisHtml += '<li class="sidebar-poi-item" onclick="event.stopPropagation();focusPoi('+di+','+pi+')">'+
+        '<span class="poi-dot" style="background-color:'+poi.color+'"></span>'+
+        '<i class="fa-solid '+poi.icon+'" style="color:'+poi.color+';width:14px;text-align:center;font-size:11px"></i>'+
+        '<span class="poi-name-text">'+poi.name+'<span class="poi-arrow">→</span></span>'+
+        '</li>';
+    });
+    
+    // Collapsed POI names
+    var collapsedPois = '';
+    day.pois.forEach(function(poi, pi){
+      collapsedPois += '<span class="collapsed-poi-name">'+poi.name+'</span>';
+      if(pi < day.pois.length-1) collapsedPois += ' · ';
+    });
+    
+    // Weather date string
+    var weatherDate;
+    if(di===0) weatherDate='2026-11-11'; else if(di===1) weatherDate='2026-11-12';
+    else if(di===2) weatherDate='2026-11-13'; else if(di===3) weatherDate='2026-11-14';
+    else if(di===4) weatherDate='2026-11-15'; else if(di===5) weatherDate='2026-11-16';
+    else if(di===6) weatherDate='2026-11-17'; else if(di===7) weatherDate='2026-11-18';
+    else if(di===8) weatherDate='2026-11-19'; else if(di===9) weatherDate='2026-11-20';
+    else if(di===10) weatherDate='2026-11-21'; else weatherDate='2026-11-22';
+    
+    // Weather coord from first POI
+    var wCoord = day.pois[0] ? day.pois[0].coord : [34,-118];
+    
+    html += '<div class="day-card'+collapsedClass+'" onclick="toggleDay('+di+')">'+
+      '<div class="day-header">'+day.dateStr+'</div>'+
+      '<div class="day-title">'+day.title+'</div>'+
+      (isActive ? '<ul class="day-pois">'+poisHtml+'</ul>' : '<div class="collapsed-pois">'+collapsedPois+'</div>')+
+      '<div class="driving-info"><i class="fa-solid fa-car" style="color:#64748b;font-size:12px"></i> '+day.drivingInfo+'</div>'+
+      '<div class="stay-info"><i class="fa-solid fa-moon" style="color:#64748b;font-size:12px"></i> '+day.stay+'</div>'+
+      '<div class="sunlight-bar">🌅 Sunrise ~6:30 AM · Sunset ~5:00 PM</div>'+
+      '<div class="weather-info" id="weather-day-'+di+'">Loading weather...</div>'+
+      '</div>';
+  });
+  container.innerHTML = html;
+  
+  // Fetch weather for each day
+  tripData.forEach(function(day, di){
+    var weatherDate;
+    if(di===0) weatherDate='2026-11-11'; else if(di===1) weatherDate='2026-11-12';
+    else if(di===2) weatherDate='2026-11-13'; else if(di===3) weatherDate='2026-11-14';
+    else if(di===4) weatherDate='2026-11-15'; else if(di===5) weatherDate='2026-11-16';
+    else if(di===6) weatherDate='2026-11-17'; else if(di===7) weatherDate='2026-11-18';
+    else if(di===8) weatherDate='2026-11-19'; else if(di===9) weatherDate='2026-11-20';
+    else if(di===10) weatherDate='2026-11-21'; else weatherDate='2026-11-22';
+    var wCoord = day.pois[0] ? day.pois[0].coord : [34,-118];
+    fetchWeather(di, wCoord[0], wCoord[1], weatherDate);
+  });
+}
+
+function toggleDay(dayIndex){
+  if(activeDay === dayIndex){
+    // Already active - scroll to day on map
+    focusDay(dayIndex);
+    return;
+  }
+  activeDay = dayIndex;
+  renderSidebar();
+  focusDay(dayIndex);
+  // On mobile, expand sidebar
+  var sidebar = document.getElementById('sidebar');
+  if(window.innerWidth <= 768){
+    sidebar.classList.remove('mobile-collapsed');
+    sidebar.classList.add('mobile-expanded');
+  }
+  // Scroll to active card
+  setTimeout(function(){
+    var cards = document.querySelectorAll('.day-card');
+    if(!cards[dayIndex]) return;
+    cards[dayIndex].scrollIntoView({behavior:'smooth',block:'nearest'});
+  },100);
+}
+
+function focusDay(dayIndex){
+  var day = tripData[dayIndex];
+  if(!day) return;
+  var poiCoords = day.pois.map(function(p){ return p.coord; });
+  var allCoords = (day.routeCoords && day.routeCoords.length > 0) ? day.routeCoords : poiCoords;
+  if(allCoords.length > 0){
+    var bounds = L.latLngBounds(allCoords);
+    map.fitBounds(bounds, {padding:[50,50], maxZoom:12});
+  }
+}
+
+function focusPoi(dayIndex, poiIndex){
+  var poi = tripData[dayIndex].pois[poiIndex];
+  if(!poi) return;
+  activeDay = dayIndex;
+  renderSidebar();
+  map.setView(poi.coord, 14, {animate:true});
+  openDetail(dayIndex, poiIndex);
+  setTimeout(function(){
+    var cards = document.querySelectorAll('.day-card');
+    if(cards[dayIndex]) cards[dayIndex].scrollIntoView({behavior:'smooth',block:'nearest'});
+  },100);
+}
+
+// ----------------------------------------------------
+// DETAIL PANEL
+// ----------------------------------------------------
+var currentDetailDay = -1;
+var currentDetailPoi = -1;
+
+function openDetail(dayIndex, poiIndex){
+  currentDetailDay = dayIndex;
+  currentDetailPoi = poiIndex;
+  var day = tripData[dayIndex];
+  var poi = day.pois[poiIndex];
+  
+  var overlay = document.getElementById('detail-overlay');
+  var content = document.getElementById('detail-content');
+  
+  // Carousel
+  var imagesHtml = '';
+  if(poi.images && poi.images.length > 0){
+    imagesHtml = '<div class="detail-carousel">';
+    poi.images.forEach(function(img, ii){
+      imagesHtml += '<img src="'+img+'" alt="'+poi.name+'" class="'+(ii===0?'active':'')+'" onclick="fsOpen(\''+img+'\')">';
+    });
+    if(poi.images.length > 1){
+      imagesHtml += '<button class="carousel-nav carousel-prev" onclick="event.stopPropagation();carouselPrev()"><i class="fa-solid fa-chevron-left"></i></button>';
+      imagesHtml += '<button class="carousel-nav carousel-next" onclick="event.stopPropagation();carouselNext()"><i class="fa-solid fa-chevron-right"></i></button>';
+      imagesHtml += '<div class="carousel-dots">';
+      poi.images.forEach(function(_,ii){
+        imagesHtml += '<button class="carousel-dot'+(ii===0?' active':'')+'" onclick="event.stopPropagation();carouselGo('+ii+')"></button>';
+      });
+      imagesHtml += '</div>';
+    }
+    imagesHtml += '</div>';
+  }
+  
+  // Tips section
+  var tipsHtml = '';
+  if(poi.tips){
+    tipsHtml = '<div class="detail-section tips-section"><h4><i class="fa-solid fa-lightbulb"></i> Tips & Notes</h4><p>'+poi.tips+'</p></div>';
+  }
+  
+  // Notes
+  var noteKey = 'note-'+dayIndex+'-'+poiIndex;
+  var savedNote = localStorage.getItem(noteKey) || '';
+  var noteSectionHtml = '';
+  if(savedNote && savedNote.trim()){
+    noteSectionHtml = '<div class="note-display" id="note-display"><span class="note-text-wrapper">'+savedNote+'</span><button class="note-delete-btn" onclick="deleteNote(\''+noteKey+'\')"><i class="fa-solid fa-trash-can"></i></button></div>';
+  }
+  
+  content.innerHTML = 
+    imagesHtml +
+    '<div class="detail-body">'+
+    '<div class="detail-day-indicator">'+day.dateStr+'</div>'+
+    '<div class="detail-title-container"><i class="fa-solid '+poi.icon+'" style="color:'+poi.color+'"></i><h2>'+poi.name+'</h2></div>'+
+    '<div class="detail-section description-section"><h4><i class="fa-solid fa-circle-info"></i> About</h4><p>'+(poi.desc||'')+'</p></div>'+
+    tipsHtml +
+    '<div class="detail-actions">'+
+    '<a class="detail-gmaps-btn" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(poi.name+','+poi.coord[0]+','+poi.coord[1])+'" target="_blank"><i class="fa-solid fa-map-location-dot"></i> Open in Google Maps</a>'+
+    '<button class="detail-note-btn" onclick="toggleNoteInput()"><i class="fa-solid fa-note-sticky"></i> '+(savedNote?'Edit Note':'Add Note')+'</button>'+
+    '</div>'+
+    noteSectionHtml +
+    '<div class="note-input-container" id="note-input-container" style="display:none">'+
+    '<textarea id="note-textarea" placeholder="Add your notes here...">'+savedNote+'</textarea>'+
+    '<button class="note-save-btn" onclick="saveNote(\''+noteKey+'\')">Save Note</button>'+
+    '</div>'+
+    '</div>';
+  
+  overlay.style.display = 'block';
+  setTimeout(function(){ overlay.classList.add('open'); }, 10);
+}
+
+function closeDetail(){
+  var overlay = document.getElementById('detail-overlay');
+  overlay.classList.remove('open');
+  setTimeout(function(){ overlay.style.display = 'none'; }, 250);
+}
+
+document.getElementById('detail-close-btn').addEventListener('click', closeDetail);
+document.getElementById('detail-overlay').addEventListener('click', function(e){
+  if(e.target === this) closeDetail();
+});
+
+// Carousel
+function carouselGo(idx){
+  var pics = document.querySelectorAll('.detail-carousel img');
+  var dots = document.querySelectorAll('.carousel-dot');
+  pics.forEach(function(p,i){ p.classList.toggle('active', i===idx); });
+  dots.forEach(function(d,i){ d.classList.toggle('active', i===idx); });
+}
+function carouselPrev(){
+  var pics = document.querySelectorAll('.detail-carousel img');
+  var ci = 0;
+  pics.forEach(function(p,i){ if(p.classList.contains('active')) ci=i; });
+  var ni = (ci-1+pics.length) % pics.length;
+  carouselGo(ni);
+}
+function carouselNext(){
+  var pics = document.querySelectorAll('.detail-carousel img');
+  var ci = 0;
+  pics.forEach(function(p,i){ if(p.classList.contains('active')) ci=i; });
+  var ni = (ci+1) % pics.length;
+  carouselGo(ni);
+}
+
+// Notes
+function toggleNoteInput(){
+  var el = document.getElementById('note-input-container');
+  el.style.display = (el.style.display==='none') ? 'flex' : 'none';
+}
+function saveNote(key){
+  var val = document.getElementById('note-textarea').value;
+  if(val.trim()){
+    localStorage.setItem(key, val);
+  } else {
+    localStorage.removeItem(key);
+  }
+  openDetail(currentDetailDay, currentDetailPoi);
+}
+function deleteNote(key){
+  localStorage.removeItem(key);
+  openDetail(currentDetailDay, currentDetailPoi);
+}
+
+// Fullscreen image
+function fsOpen(src){
+  var ov = document.getElementById('fullscreen-overlay');
+  document.getElementById('fullscreen-img').src = src;
+  ov.style.display = 'flex';
+}
+document.getElementById('fullscreen-close-btn').addEventListener('click',function(){
+  document.getElementById('fullscreen-overlay').style.display = 'none';
+});
+document.getElementById('fullscreen-overlay').addEventListener('click',function(e){
+  if(e.target === this) this.style.display = 'none';
+});
+
+// ----------------------------------------------------
+// SIDEBAR TITLE → RESET MAP
+// ----------------------------------------------------
+document.getElementById('sidebar-title').addEventListener('click', function(){
+  map.fitBounds([[32.5,-118.5],[39.0,-109.0]], {padding:[50,50]});
+  activeDay = 0;
+  renderSidebar();
+});
+
+// ----------------------------------------------------
+// INIT
+// ----------------------------------------------------
+renderSidebar();
+
+// Default map bounds: show all route points
+var allBounds = [];
+tripData.forEach(function(d){
+  if(d.routeCoords) allBounds = allBounds.concat(d.routeCoords);
+  d.pois.forEach(function(p){ allBounds.push(p.coord); });
+});
+if(allBounds.length > 0){
+  map.fitBounds(L.latLngBounds(allBounds), {padding:[30,30]});
+}
+
+// ----------------------------------------------------
+// MOBILE RESPONSIVE (drag handle)
+// ----------------------------------------------------
+(function(){
+  var sidebar = document.getElementById('sidebar');
+  var handle = document.getElementById('sidebar-drag-handle');
+  if(!handle) return;
+  
+  var startY = 0;
+  var startH = 0;
+  
+  handle.addEventListener('touchstart', function(e){
+    startY = e.touches[0].clientY;
+    startH = sidebar.offsetHeight;
+    sidebar.classList.add('dragging');
+  });
+  
+  handle.addEventListener('touchmove', function(e){
+    var dy = startY - e.touches[0].clientY; // upward = positive
+    var newH = Math.max(32, Math.min(90, (startH + dy) / window.innerHeight * 100));
+    sidebar.style.height = newH + 'vh';
+  });
+  
+  handle.addEventListener('touchend', function(){
+    sidebar.classList.remove('dragging');
+    var h = sidebar.offsetHeight / window.innerHeight * 100;
+    if(h > 45){
+      sidebar.classList.remove('mobile-collapsed');
+      sidebar.classList.add('mobile-expanded');
+      sidebar.style.height = '60vh';
+    } else if(h < 25){
+      sidebar.classList.add('mobile-collapsed');
+      sidebar.classList.remove('mobile-expanded');
+      sidebar.style.height = '32vh';
+    }
+  });
+})();
+</script>
+</body>
+</html>
